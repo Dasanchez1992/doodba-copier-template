@@ -27,11 +27,15 @@ services:
       {%- if smtp_relay_host %}
       SMTP_SERVER: smtplocal
       {%- endif %}
+    {% if postgres_version or smtp_relay_host -%}
     depends_on:
+    {% if postgres_version -%}
       - db
+    {%- endif %}
       {%- if smtp_relay_host %}
       - smtp
       {%- endif %}
+    {%- endif %}
     networks:
       default:
     {%- if odoo_proxy == "traefik" and domains_prod %}
@@ -164,7 +168,9 @@ volumes:
   backup_cache:
   {%- endif %}
   filestore:
+  {% if postgres_version -%}
   db:
+  {%- endif %}
   {%- if smtp_relay_host %}
   mailconfig:
   maildata:
