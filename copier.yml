@@ -140,7 +140,7 @@ traefik_version:
     v3.1: 3
 
 odoo_initial_lang:
-  default: en_US
+  default: es_EC
   type: str
   help: >-
     If you want to initialize Odoo automatically in a specific language, write it here.
@@ -150,7 +150,7 @@ odoo_initial_lang:
 
 odoo_admin_password:
   secret: true
-  default: example-admin-password
+  default: odoo
   type: str
   help: >-
     💡 To auto-generate strong passwords, see https://ddg.gg/?q=password+64+strong
@@ -191,7 +191,7 @@ project_license:
     find other propietary licenses we support in this scaffolding. Make a wise choice!
 
     So, what's your project's license?
-  default: BSL-1.0
+  default: LGPL-3.0-or-later
   choices:
     No license: no_license
     Apache License 2.0: Apache-2.0
@@ -272,7 +272,7 @@ traefik_dashboard_password:
 domains_prod:
   type: yaml
   multiline: true
-  default: {}
+  default: [{"hosts": ["example.com"]}]
   placeholder: |
     # Main domains, with TLS and cert resolved with "letsencrypt" resolver
     - hosts:
@@ -328,7 +328,7 @@ domains_prod:
 domains_test:
   type: yaml
   multiline: true
-  default: {}
+  default: [{"hosts": ["test.example.com"]}]
   placeholder: |
     # Main domains, with TLS and cert resolved with "letsencrypt" resolver
     - hosts:
@@ -445,7 +445,7 @@ postgres_dbname:
 
 postgres_password:
   secret: true
-  default: example-db-password
+  default: odoo
   type: str
   help: >-
     What will be your postgres user password?
@@ -474,7 +474,7 @@ postgres_cidr_whitelist:
     ⚠️ It must be a list. And this is only supported if you deploy with Traefik 2+.
 
 odoo_dbfilter:
-  default: "^{{ postgres_dbname }}"
+  default: "^%d"
   type: str
   help: >-
     Set your Odoo db filter. It must be a regexp that matches the domain name being
