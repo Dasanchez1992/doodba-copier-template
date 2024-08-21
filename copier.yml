@@ -474,7 +474,7 @@ postgres_cidr_whitelist:
     ⚠️ It must be a list. And this is only supported if you deploy with Traefik 2+.
 
 odoo_dbfilter:
-  default: "^%d"
+  default: "^%d$"
   type: str
   help: >-
     Set your Odoo db filter. It must be a regexp that matches the domain name being
