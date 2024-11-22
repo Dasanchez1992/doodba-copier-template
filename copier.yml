@@ -7,7 +7,10 @@ _exclude:
   - _macros
   - _traefik*_labels.yml
   - /.git
-  - /.github
+  - /.github/ISSUE_TEMPLATE
+  - /.github/dependabot.yml
+  - /.github/workflows/dependabot-merge.yml
+  - /.github/workflows/test.yml
   - /.gitmodules
   - /.vscode/launch.json
   - /.vscode/settings.json
@@ -128,17 +131,17 @@ odoo_proxy:
 
 traefik_version:
   type: int
-  default: 2
+  default: 3
   when: "{{ odoo_proxy == 'traefik' }}"
   help: >
     Indicate Traefik version( v2 recommended )
   choices:
     v1.7: 1
-    v2.4: 2
-    v3.0: 3
+    v2.9: 2
+    v3.1: 3
 
 odoo_initial_lang:
-  default: en_US
+  default: es_EC
   type: str
   help: >-
     If you want to initialize Odoo automatically in a specific language, write it here.
@@ -148,7 +151,7 @@ odoo_initial_lang:
 
 odoo_admin_password:
   secret: true
-  default: example-admin-password
+  default: odoo
   type: str
   help: >-
     💡 To auto-generate strong passwords, see https://ddg.gg/?q=password+64+strong
@@ -163,17 +166,6 @@ odoo_listdb:
   type: bool
   help: >-
     Do you want to list databases publicly?
-
-odoo_oci_image:
-  type: str
-  help: >-
-    If you are using an OCI/Docker image registry (such as the Docker Hub, Quay or
-    Gitlab registry) to publish the Odoo images that will be built with this Doodba
-    project, specify here the path to the odoo image built with it. Leave it empty if
-    you are not using a registry.
-
-    Example: docker.io/myteam/example-odoo
-  default: ""
 
 project_author:
   type: str
@@ -200,7 +192,7 @@ project_license:
     find other propietary licenses we support in this scaffolding. Make a wise choice!
 
     So, what's your project's license?
-  default: BSL-1.0
+  default: LGPL-3.0-or-later
   choices:
     No license: no_license
     Apache License 2.0: Apache-2.0
@@ -210,6 +202,27 @@ project_license:
     MIT license: MIT
     Odoo Enterprise Edition License v1.0: OEEL-1.0
     Odoo Proprietary License v1.0: OPL-1.0
+
+docker_registry:
+  type: str
+  help: >-
+    If you are using an OCI/Docker image registry (such as the Docker Hub, Quay or
+    Gitlab registry) to publish the Odoo images that will be built with this Doodba
+    project, specify here the path to the odoo image built with it. Leave it empty if
+    you are not using a registry.
+
+    Example: registry.gitlab.com
+  default: "registry.gitlab.com"
+odoo_oci_image:
+  type: str
+  help: >-
+    If you are using an OCI/Docker image registry (such as the Docker Hub, Quay or
+    Gitlab registry) to publish the Odoo images that will be built with this Doodba
+    project, specify here the path to the odoo image built with it. Leave it empty if
+    you are not using a registry.
+
+    Example: docker.io/myteam/example-odoo
+  default: "{{ docker_registry }}/{{ project_author.lower() }}/{{ project_name }}"
 
 gitlab_url:
   type: str
@@ -223,10 +236,44 @@ gitlab_url:
     Example: `https://gitlab.com/Tecnativa/your-doodba-project`.
   default: ""
 
+ssl_email:
+  type: str
+  default: ssl@example.com
+  help: >-
+    Email to SSL?
+
+enable_traefik_dashboard:
+  default: false
+  type: bool
+  help: Enable traefik dashboard?
+
+traefik_dashboard_domain:
+  type: str
+  default: dashboard.example.com
+  when: &enable_traefik_dashboard "{{ enable_traefik_dashboard and true }}"
+  help: >-
+    Domain to traefik dashboard?
+
+traefik_dashboard_user:
+  type: str
+  default: admin
+  when: *enable_traefik_dashboard
+  help: >-
+    User to access into traefik dashboard?
+
+traefik_dashboard_password:
+  type: str
+  secret: true
+  default: ""
+  when: *enable_traefik_dashboard
+  help: >-
+    Password to access into traefik dashboard Passwords must be hashed using MD5, SHA1,
+    or BCrypt. TIP: Use htpasswd to generate the passwords.
+
 domains_prod:
   type: yaml
   multiline: true
-  default: {}
+  default: [{"hosts": ["example.com"]}]
   placeholder: |
     # Main domains, with TLS and cert resolved with "letsencrypt" resolver
     - hosts:
@@ -282,7 +329,7 @@ domains_prod:
 domains_test:
   type: yaml
   multiline: true
-  default: {}
+  default: [{"hosts": ["test.example.com"]}]
   placeholder: |
     # Main domains, with TLS and cert resolved with "letsencrypt" resolver
     - hosts:
@@ -382,6 +429,12 @@ postgres_version:
     odoo_version <= 12.0 and postgres_version|int > 13 %}  The postgres version is too
     high for the selected Odoo version. {% endif %} {% endif %}
 
+pg_host:
+  type: str
+  default: "db"
+  help: >-
+    URL o IP para conectarse a postgres
+
 postgres_username:
   type: str
   default: odoo
@@ -390,7 +443,7 @@ postgres_username:
 
 postgres_dbname:
   type: str
-  default: prod
+  default: "{{ project_name }}"
   help: >-
     💡 If database names differ among environments, operations like restoring a database
     from an alien environment will be harder to maintain, but can provide additional
@@ -400,7 +453,7 @@ postgres_dbname:
 
 postgres_password:
   secret: true
-  default: example-db-password
+  default: odoo
   type: str
   help: >-
     What will be your postgres user password?
@@ -408,13 +461,51 @@ postgres_password:
 postgres_exposed:
   default: false
   type: bool
+  when: "{{ postgres_version }}"
   help: >-
     Do you want to expose database service?
+
+postgres_open_port:
+  default: false
+  type: bool
+  when:
+    &db_exposed "{{ postgres_version and postgres_exposed and traefik_version != 3 and
+    true }}"
+  help: >-
+    Do you want to Open Ports database service?
+
+wan_auth_method:
+  default: "md5"
+  choices:
+    "trust": "trust"
+    "reject": "reject"
+    "scram-sha-256": "scram-sha-256"
+    "md5": "md5"
+    "password": "password"
+  when: &db_open_port "{{ db_exposed and postgres_open_port and true }}"
+  help: >-
+    Indicate the auth method for connect to the database.
+
+wan_databases:
+  when: *db_open_port
+  type: str
+  multiline: true
+  default: |
+    ["all"]
+  help: DataBase names?
+
+wan_users:
+  when: *db_open_port
+  type: str
+  multiline: true
+  default: |
+    ["all"]
+  help: User names?
 
 postgres_exposed_port:
   default: 5432
   type: int
-  when: &db_exposed "{{ postgres_exposed and traefik_version != 3 }}"
+  when: "{{ (postgres_exposed and traefik_version != 3) or not postgres_version }}"
   help: >-
     Indicate the port to connect to the database.
 
@@ -428,8 +519,29 @@ postgres_cidr_whitelist:
 
     ⚠️ It must be a list. And this is only supported if you deploy with Traefik 2+.
 
+pg_tune_conf:
+  when: "{{ postgres_version }}"
+  type: str
+  multiline: true
+  default: |
+    CONF_EXTRA: |
+            max_connections = 100
+            shared_buffers = 768MB
+            effective_cache_size = 2304MB
+            maintenance_work_mem = 192MB
+            checkpoint_completion_target = 0.9
+            wal_buffers = 16MB
+            default_statistics_target = 100
+            random_page_cost = 1.1
+            effective_io_concurrency = 200
+            work_mem = 3932kB
+            min_wal_size = 2GB
+            max_wal_size = 8GB
+            max_locks_per_transaction = 200
+  help: Configuracion de PG Tune?
+
 odoo_dbfilter:
-  default: "^{{ postgres_dbname }}"
+  default: "^%d$"
   type: str
   help: >-
     Set your Odoo db filter. It must be a regexp that matches the domain name being
